@@ -6,6 +6,12 @@ from langchain.chat_models import init_chat_model
 from langchain.agents import create_agent
 from langchain_core.messages import HumanMessage, AIMessage, AIMessageChunk, SystemMessage
 from tools import get_current_weather, search_knowledge_base, get_last_rag_context, reset_tool_call_guards, set_rag_step_queue
+from skill import skill_loader
+from skill.skill_tools import (
+    get_skill_tools,
+    set_skill_context,
+    get_active_skill_messages,
+)
 from datetime import datetime
 
 load_dotenv()
@@ -118,21 +124,29 @@ def create_agent_instance():
         stream_usage=True,
     )
 
+    base_prompt = (
+        "You are a cute cat bot that loves to help users. "
+        "When responding, you may use tools to assist. "
+        "Use search_knowledge_base when users ask document/knowledge questions. "
+        "Do not call the same tool repeatedly in one turn. At most one knowledge tool call per turn. "
+        "Once you call search_knowledge_base and receive its result, you MUST immediately produce the Final Answer based on that result. "
+        "After receiving search_knowledge_base result, you MUST NOT call any tool again (including get_current_weather or search_knowledge_base). "
+        "If the retrieved context is insufficient, answer honestly that you don't know instead of making up facts. "
+        "If tool results include a Step-back Question/Answer, use that general principle to reason and answer, "
+        "but do not reveal chain-of-thought. "
+        "If you don't know the answer, admit it honestly."
+    )
+
+    skill_catalog = skill_loader.get_skill_catalog_description()
+    if skill_catalog:
+        base_prompt += "\n\n" + skill_catalog
+
+    all_tools = [get_current_weather, search_knowledge_base] + get_skill_tools()
+
     agent = create_agent(
         model=model,
-        tools=[get_current_weather, search_knowledge_base],
-        system_prompt=(
-            "You are a cute cat bot that loves to help users. "
-            "When responding, you may use tools to assist. "
-            "Use search_knowledge_base when users ask document/knowledge questions. "
-            "Do not call the same tool repeatedly in one turn. At most one knowledge tool call per turn. "
-            "Once you call search_knowledge_base and receive its result, you MUST immediately produce the Final Answer based on that result. "
-            "After receiving search_knowledge_base result, you MUST NOT call any tool again (including get_current_weather or search_knowledge_base). "
-            "If the retrieved context is insufficient, answer honestly that you don't know instead of making up facts. "
-            "If tool results include a Step-back Question/Answer, use that general principle to reason and answer, "
-            "but do not reveal chain-of-thought. "
-            "If you don't know the answer, admit it honestly."
-        ),
+        tools=all_tools,
+        system_prompt=base_prompt,
     )
     return agent, model
 
@@ -166,7 +180,8 @@ def chat_with_agent(user_text: str, user_id: str = "default_user", session_id: s
     # 清理可能残留的 RAG 上下文，避免跨请求污染
     get_last_rag_context(clear=True)
     reset_tool_call_guards()
-    
+    set_skill_context(user_id, session_id)
+
     if len(messages) > 50:
         summary = summarize_old_messages(model, messages[:40])
 
@@ -175,6 +190,11 @@ def chat_with_agent(user_text: str, user_id: str = "default_user", session_id: s
         ] + messages[40:]
 
     messages.append(HumanMessage(content=user_text))
+
+    skill_messages = get_active_skill_messages(user_id, session_id)
+    if skill_messages:
+        messages.extend(skill_messages)
+
     result = agent.invoke(
         {"messages": messages},
         config={"recursion_limit": 8},
@@ -219,6 +239,7 @@ async def chat_with_agent_stream(user_text: str, user_id: str = "default_user", 
     # 清理可能残留的 RAG 上下文
     get_last_rag_context(clear=True)
     reset_tool_call_guards()
+    set_skill_context(user_id, session_id)
 
     # 统一输出队列：所有事件（content / rag_step）都汇入这里
     output_queue = asyncio.Queue()
@@ -237,6 +258,10 @@ async def chat_with_agent_stream(user_text: str, user_id: str = "default_user", 
         ] + messages[40:]
 
     messages.append(HumanMessage(content=user_text))
+
+    skill_messages = get_active_skill_messages(user_id, session_id)
+    if skill_messages:
+        messages.extend(skill_messages)
 
     full_response = ""
 

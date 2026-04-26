@@ -25,6 +25,7 @@ dependencies = [
     "openpyxl",
     "tabulate",
     "msoffcrypto-tool",
+    "pyyaml>=6.0.0",
 ]
 
 [project.optional-dependencies]
