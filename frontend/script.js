@@ -19,7 +19,9 @@ createApp({
             documentsLoading: false,
             selectedFile: null,
             isUploading: false,
-            uploadProgress: ''
+            uploadProgress: '',
+            // 工作区文件
+            workspaceFiles: []
         };
     },
     mounted() {
@@ -31,6 +33,7 @@ createApp({
         } else {
             localStorage.setItem('userId', this.userId);
         }
+        this.loadWorkspaceFiles();
     },
     methods: {
         configureMarked() {
@@ -187,6 +190,7 @@ createApp({
                 this.isLoading = false;
                 this.abortController = null;
                 this.$nextTick(() => this.scrollToBottom());
+                this.loadWorkspaceFiles();
             }
         },
         
@@ -415,6 +419,62 @@ createApp({
                 return 'fas fa-file-excel';
             }
             return 'fas fa-file';
+        },
+
+        // ===== Workspace Files =====
+
+        async loadWorkspaceFiles() {
+            try {
+                const response = await fetch('/workspace/files');
+                if (!response.ok) throw new Error('Failed to load');
+                const data = await response.json();
+                this.workspaceFiles = data.files;
+            } catch (e) {
+                console.error('Error loading workspace files:', e);
+            }
+        },
+
+        async deleteWorkspaceFile(filename) {
+            if (!confirm(`确定要删除文件 "${filename}" 吗？`)) return;
+            try {
+                const response = await fetch(`/workspace/files/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+                if (!response.ok) throw new Error('Delete failed');
+                await this.loadWorkspaceFiles();
+            } catch (e) {
+                console.error('Error deleting file:', e);
+                alert('删除文件失败：' + e.message);
+            }
+        },
+
+        getFileIconClass(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+            const map = {
+                'pptx': 'fas fa-file-powerpoint',
+                'ppt': 'fas fa-file-powerpoint',
+                'pdf': 'fas fa-file-pdf',
+                'docx': 'fas fa-file-word',
+                'doc': 'fas fa-file-word',
+                'xlsx': 'fas fa-file-excel',
+                'xls': 'fas fa-file-excel',
+                'png': 'fas fa-file-image',
+                'jpg': 'fas fa-file-image',
+                'jpeg': 'fas fa-file-image',
+                'svg': 'fas fa-file-image',
+                'html': 'fas fa-file-code',
+                'css': 'fas fa-file-code',
+                'js': 'fas fa-file-code',
+                'py': 'fas fa-file-code',
+                'json': 'fas fa-file-code',
+                'zip': 'fas fa-file-archive',
+                'md': 'fas fa-file-alt',
+            };
+            return map[ext] || 'fas fa-file';
+        },
+
+        formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
         }
     },
     watch: {

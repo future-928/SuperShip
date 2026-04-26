@@ -358,16 +358,43 @@
             <!-- Model Preview Panel -->
             <div v-show="activeNav !== 'settings'" class="preview-panel">
                 <div class="preview-header">
-                    <span>3D Preview</span>
+                    <span>Output Files</span>
                     <div class="preview-header-actions">
-                        <button class="preview-btn" title="刷新"><i class="fas fa-sync-alt"></i></button>
-                        <button class="preview-btn" title="全屏"><i class="fas fa-expand"></i></button>
+                        <button class="preview-btn" @click="loadWorkspaceFiles" title="刷新"><i class="fas fa-sync-alt"></i></button>
                     </div>
                 </div>
+
+                <!-- File List -->
+                <div class="workspace-files">
+                    <div v-if="workspaceFiles.length === 0" class="workspace-empty">
+                        <i class="fas fa-folder-open"></i>
+                        <p>暂无生成文件</p>
+                    </div>
+                    <div v-else class="workspace-file-list">
+                        <div v-for="file in workspaceFiles" :key="file.filename" class="workspace-file-item">
+                            <div class="workspace-file-icon">
+                                <i :class="getFileIconClass(file.filename)"></i>
+                            </div>
+                            <div class="workspace-file-info">
+                                <div class="workspace-file-name">{{ file.filename }}</div>
+                                <div class="workspace-file-meta">{{ formatFileSize(file.size) }}</div>
+                            </div>
+                            <div class="workspace-file-actions">
+                                <a :href="'/workspace/files/' + encodeURIComponent(file.filename)" class="workspace-dl-btn" title="下载">
+                                    <i class="fas fa-download"></i>
+                                </a>
+                                <button class="workspace-del-btn" @click="deleteWorkspaceFile(file.filename)" title="删除">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3D Viewport (placeholder) -->
                 <div class="preview-viewport">
                     <div class="preview-placeholder">
                         <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <!-- Ship wireframe -->
                             <path d="M20 80 L40 55 L80 55 L100 80 Z" stroke="#3b82f6" stroke-width="1" fill="none" opacity="0.5"/>
                             <path d="M35 55 L40 35 L80 35 L85 55" stroke="#3b82f6" stroke-width="1" fill="none" opacity="0.5"/>
                             <line x1="60" y1="35" x2="60" y2="20" stroke="#3b82f6" stroke-width="1" opacity="0.5"/>
@@ -377,7 +404,7 @@
                             <line x1="60" y1="55" x2="60" y2="85" stroke="#3b82f6" stroke-width="0.5" opacity="0.3"/>
                             <line x1="80" y1="55" x2="85" y2="80" stroke="#3b82f6" stroke-width="0.5" opacity="0.3"/>
                         </svg>
-                        <p>NO MODEL LOADED</p>
+                        <p>3D PREVIEW</p>
                     </div>
                 </div>
                 <div class="preview-info">
@@ -387,14 +414,6 @@
                     </div>
                     <div class="preview-info-row">
                         <span class="preview-info-label">Vertices</span>
-                        <span class="preview-info-value">--</span>
-                    </div>
-                    <div class="preview-info-row">
-                        <span class="preview-info-label">Faces</span>
-                        <span class="preview-info-value">--</span>
-                    </div>
-                    <div class="preview-info-row">
-                        <span class="preview-info-label">Format</span>
                         <span class="preview-info-value">--</span>
                     </div>
                 </div>

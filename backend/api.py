@@ -2,6 +2,7 @@ import re
 import os
 import json
 from pathlib import Path
+from datetime import datetime
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from fastapi.responses import StreamingResponse
 
@@ -256,3 +257,58 @@ async def delete_document(filename: str):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"删除文档失败: {str(e)}")
+
+
+# ===== Workspace Files =====
+
+WORKSPACE_DIR = Path(__file__).resolve().parent.parent / "data" / "skill_workspace"
+
+
+@router.get("/workspace/files")
+async def list_workspace_files():
+    """列出技能工作区中的所有文件"""
+    if not WORKSPACE_DIR.exists():
+        return {"files": []}
+    files = []
+    for item in sorted(WORKSPACE_DIR.iterdir(), key=lambda f: f.stat().st_mtime, reverse=True):
+        if item.is_file():
+            stat = item.stat()
+            files.append({
+                "filename": item.name,
+                "size": stat.st_size,
+                "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+            })
+    return {"files": files}
+
+
+@router.get("/workspace/files/{filename}")
+async def download_workspace_file(filename: str):
+    """下载技能工作区中的文件"""
+    if not WORKSPACE_DIR.exists():
+        raise HTTPException(status_code=404, detail="工作区不存在")
+    file_path = WORKSPACE_DIR / filename
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=404, detail="文件不存在")
+    # 防止路径穿越
+    if not str(file_path.resolve()).startswith(str(WORKSPACE_DIR.resolve())):
+        raise HTTPException(status_code=403, detail="禁止访问")
+    from fastapi.responses import FileResponse
+    return FileResponse(
+        path=str(file_path),
+        filename=filename,
+        media_type="application/octet-stream",
+    )
+
+
+@router.delete("/workspace/files/{filename}")
+async def delete_workspace_file(filename: str):
+    """删除技能工作区中的文件"""
+    if not WORKSPACE_DIR.exists():
+        raise HTTPException(status_code=404, detail="工作区不存在")
+    file_path = WORKSPACE_DIR / filename
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=404, detail="文件不存在")
+    if not str(file_path.resolve()).startswith(str(WORKSPACE_DIR.resolve())):
+        raise HTTPException(status_code=403, detail="禁止访问")
+    file_path.unlink()
+    return {"message": f"已删除文件 {filename}"}
