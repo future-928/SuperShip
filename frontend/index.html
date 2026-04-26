@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>喵喵智能助手</title>
+    <title>船舶建模智能体</title>
     <link rel="stylesheet" href="style.css">
     <!-- Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&family=Zcool+KuaiLe&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <!-- Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Markdown Parser -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <!-- Syntax Highlighting -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/atom-one-light.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/atom-one-dark.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <!-- Vue 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
@@ -23,8 +23,8 @@
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
-                <div class="logo-icon">🐱</div>
-                <h2>喵喵助手</h2>
+                <div class="logo-icon"><i class="fas fa-ship"></i></div>
+                <h2>MarineAgent</h2>
             </div>
             <nav class="sidebar-nav">
                 <button @click="handleNewChat" :class="['nav-btn', {active: activeNav === 'newChat'}]">
@@ -34,7 +34,7 @@
                     <i class="fas fa-history"></i> 历史记录
                 </button>
                 <button @click="handleSettings" :class="['nav-btn', {active: activeNav === 'settings'}]">
-                    <i class="fas fa-cog"></i> 设置
+                    <i class="fas fa-cog"></i> 文档管理
                 </button>
             </nav>
             <div class="sidebar-footer">
@@ -44,21 +44,21 @@
             </div>
         </aside>
 
-        <!-- Main Chat Area -->
+        <!-- Main Content -->
         <main class="main-content">
             <!-- Settings Panel -->
             <div v-if="activeNav === 'settings'" class="settings-panel">
                 <div class="settings-header">
                     <h2><i class="fas fa-cog"></i> 文档管理</h2>
-                    <p>上传文档进行向量化处理，支持 PDF 和 Word 、Excel 格式</p>
+                    <p>上传文档进行向量化处理，支持 PDF、Word 和 Excel 格式</p>
                 </div>
 
                 <div class="upload-section">
                     <h3><i class="fas fa-upload"></i> 上传文档</h3>
                     <div class="upload-area">
-                        <input 
-                            type="file" 
-                            ref="fileInput" 
+                        <input
+                            type="file"
+                            ref="fileInput"
                             @change="handleFileSelect"
                             accept=".pdf,.doc,.docx,.xls,.xlsx"
                             style="display: none"
@@ -83,19 +83,19 @@
                     <button @click="loadDocuments" class="btn-secondary">
                         <i class="fas fa-sync"></i> 刷新列表
                     </button>
-                    
+
                     <div v-if="documentsLoading" class="loading-indicator">
                         加载中...
                     </div>
-                    
+
                     <div v-else-if="documents.length === 0" class="empty-documents">
                         <i class="fas fa-inbox"></i>
                         <p>暂无文档</p>
                     </div>
-                    
+
                     <div v-else class="documents-list">
-                        <div 
-                            v-for="doc in documents" 
+                        <div
+                            v-for="doc in documents"
                             :key="doc.filename"
                             class="document-item"
                         >
@@ -111,8 +111,8 @@
                                     </div>
                                 </div>
                             </div>
-                            <button 
-                                @click="deleteDocument(doc.filename)" 
+                            <button
+                                @click="deleteDocument(doc.filename)"
                                 class="btn-danger"
                                 title="删除文档"
                             >
@@ -135,8 +135,8 @@
                     <div v-if="sessions.length === 0" class="empty-history">
                         <p>暂无历史记录</p>
                     </div>
-                    <div 
-                        v-for="session in sessions" 
+                    <div
+                        v-for="session in sessions"
                         :key="session.session_id"
                         class="history-item"
                         :class="{active: session.session_id === sessionId}"
@@ -150,7 +150,7 @@
                                 </div>
                             </div>
                         </div>
-                        <button 
+                        <button
                             class="history-delete-btn"
                             title="删除会话"
                             @click.stop="deleteSession(session.session_id)"
@@ -166,7 +166,7 @@
                 <header class="chat-header">
                     <div class="header-info">
                         <div class="status-dot"></div>
-                        <span>喵喵在线中...</span>
+                        <span>SYSTEM READY</span>
                     </div>
                     <div class="header-actions">
                         <button class="icon-btn" title="更多"><i class="fas fa-ellipsis-h"></i></button>
@@ -175,14 +175,14 @@
 
                 <div class="chat-container" ref="chatContainer">
                 <div v-if="messages.length === 0" class="welcome-screen">
-                    <div class="big-avatar">🐱</div>
-                    <h3>你好呀！我是喵喵</h3>
-                    <p>我可以帮你写代码、回答问题，或者只是陪你聊天~ 喵！</p>
+                    <div class="welcome-icon"><i class="fas fa-ship"></i></div>
+                    <h3>船舶建模智能体</h3>
+                    <p>支持文档检索、知识问答、模型生成等工程任务。<br>请输入您的需求或问题。</p>
                 </div>
-                
+
                 <!-- Messages -->
                 <div v-for="(msg, index) in messages" :key="index" :class="['message', msg.isUser ? 'user-message' : 'bot-message']">
-                    <!-- 思考动画（在气泡内部，RAG 步骤实时填入） -->
+                    <!-- 思考动画 -->
                     <div v-if="!msg.isUser && msg.isThinking && !msg.text" class="message-content thinking-content">
                         <div class="thinking-header">
                             <div class="thinking-dots">
@@ -190,12 +190,12 @@
                                 <span class="tdot"></span>
                                 <span class="tdot"></span>
                             </div>
-                            <span v-if="!msg.ragSteps || !msg.ragSteps.length" class="thinking-text">正在思考中...</span>
+                            <span v-if="!msg.ragSteps || !msg.ragSteps.length" class="thinking-text">处理中...</span>
                             <span v-else class="thinking-text">{{ msg.ragSteps[msg.ragSteps.length - 1].label }}</span>
                         </div>
                         <div v-if="msg.ragSteps && msg.ragSteps.length" class="thinking-trace-lines">
                             <div v-for="(step, sIdx) in msg.ragSteps" :key="sIdx" class="thinking-trace-line">
-                                <span class="thinking-trace-icon">{{ step.icon || '▶' }}</span>
+                                <span class="thinking-trace-icon">{{ step.icon || '>' }}</span>
                                 <span class="thinking-trace-label">{{ step.label }}</span>
                                 <span v-if="step.detail" class="thinking-trace-detail">{{ step.detail }}</span>
                             </div>
@@ -328,34 +328,78 @@
                         </details>
                     </div>
                 </div>
-                
-                <!-- Loading Indicator -->
-            </div>
-
-            <div class="input-area-wrapper">
-                <div class="input-area">
-                    <button class="attach-btn"><i class="fas fa-paperclip"></i></button>
-                    <textarea 
-                        v-model="userInput" 
-                        @keydown="handleKeyDown"
-                        @compositionstart="handleCompositionStart"
-                        @compositionend="handleCompositionEnd"
-                        @input="autoResize"
-                        placeholder="和喵喵说点什么吧... (Shift+Enter 换行)" 
-                        rows="1"
-                        ref="textarea"
-                    ></textarea>
-                    <button v-if="isLoading" @click="handleStop" class="send-btn stop-btn" title="终止回答">
-                        <i class="fas fa-stop"></i>
-                    </button>
-                    <button v-else @click="handleSend" class="send-btn" title="发送">
-                        <i class="fas fa-paper-plane"></i>
-                    </button>
                 </div>
-                <div class="footer-text">AI 生成的内容可能包含错误，请仔细甄别。</div>
-            </div>
+
+                <div class="input-area-wrapper">
+                    <div class="input-area">
+                        <button class="attach-btn"><i class="fas fa-paperclip"></i></button>
+                        <textarea
+                            v-model="userInput"
+                            @keydown="handleKeyDown"
+                            @compositionstart="handleCompositionStart"
+                            @compositionend="handleCompositionEnd"
+                            @input="autoResize"
+                            placeholder="输入指令或问题... (Shift+Enter 换行)"
+                            rows="1"
+                            ref="textarea"
+                        ></textarea>
+                        <button v-if="isLoading" @click="handleStop" class="send-btn stop-btn" title="终止回答">
+                            <i class="fas fa-stop"></i>
+                        </button>
+                        <button v-else @click="handleSend" class="send-btn" title="发送">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                    <div class="footer-text">AI output may contain errors &mdash; verify before use.</div>
+                </div>
             </div>
             <!-- End of Chat Area -->
+
+            <!-- Model Preview Panel -->
+            <div v-show="activeNav !== 'settings'" class="preview-panel">
+                <div class="preview-header">
+                    <span>3D Preview</span>
+                    <div class="preview-header-actions">
+                        <button class="preview-btn" title="刷新"><i class="fas fa-sync-alt"></i></button>
+                        <button class="preview-btn" title="全屏"><i class="fas fa-expand"></i></button>
+                    </div>
+                </div>
+                <div class="preview-viewport">
+                    <div class="preview-placeholder">
+                        <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <!-- Ship wireframe -->
+                            <path d="M20 80 L40 55 L80 55 L100 80 Z" stroke="#3b82f6" stroke-width="1" fill="none" opacity="0.5"/>
+                            <path d="M35 55 L40 35 L80 35 L85 55" stroke="#3b82f6" stroke-width="1" fill="none" opacity="0.5"/>
+                            <line x1="60" y1="35" x2="60" y2="20" stroke="#3b82f6" stroke-width="1" opacity="0.5"/>
+                            <line x1="60" y1="20" x2="75" y2="25" stroke="#3b82f6" stroke-width="1" opacity="0.5"/>
+                            <path d="M25 80 Q60 90 95 80" stroke="#3b82f6" stroke-width="1" fill="none" opacity="0.3"/>
+                            <line x1="40" y1="55" x2="35" y2="80" stroke="#3b82f6" stroke-width="0.5" opacity="0.3"/>
+                            <line x1="60" y1="55" x2="60" y2="85" stroke="#3b82f6" stroke-width="0.5" opacity="0.3"/>
+                            <line x1="80" y1="55" x2="85" y2="80" stroke="#3b82f6" stroke-width="0.5" opacity="0.3"/>
+                        </svg>
+                        <p>NO MODEL LOADED</p>
+                    </div>
+                </div>
+                <div class="preview-info">
+                    <div class="preview-info-row">
+                        <span class="preview-info-label">Status</span>
+                        <span class="preview-info-value">Idle</span>
+                    </div>
+                    <div class="preview-info-row">
+                        <span class="preview-info-label">Vertices</span>
+                        <span class="preview-info-value">--</span>
+                    </div>
+                    <div class="preview-info-row">
+                        <span class="preview-info-label">Faces</span>
+                        <span class="preview-info-value">--</span>
+                    </div>
+                    <div class="preview-info-row">
+                        <span class="preview-info-label">Format</span>
+                        <span class="preview-info-value">--</span>
+                    </div>
+                </div>
+            </div>
+
         </main>
     </div>
 
