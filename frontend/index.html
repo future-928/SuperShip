@@ -16,6 +16,15 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <!-- Vue 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Three.js importmap (lazy loaded) -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
 </head>
 <body>
     <div id="app" class="app-wrapper">
@@ -380,6 +389,10 @@
                                 <div class="workspace-file-meta">{{ formatFileSize(file.size) }}</div>
                             </div>
                             <div class="workspace-file-actions">
+                                <button v-if="file.filename.toLowerCase().endsWith('.step') || file.filename.toLowerCase().endsWith('.stp')"
+                                        class="workspace-preview-btn" @click="previewStep(file.filename)" title="3D预览">
+                                    <i class="fas fa-cube"></i>
+                                </button>
                                 <a :href="'/workspace/files/' + encodeURIComponent(file.filename)" class="workspace-dl-btn" title="下载">
                                     <i class="fas fa-download"></i>
                                 </a>
@@ -391,9 +404,10 @@
                     </div>
                 </div>
 
-                <!-- 3D Viewport (placeholder) -->
-                <div class="preview-viewport">
-                    <div class="preview-placeholder">
+                <!-- 3D Viewport -->
+                <div class="preview-viewport" ref="viewportContainer">
+                    <canvas ref="viewerCanvas" v-show="previewModel"></canvas>
+                    <div class="preview-placeholder" v-show="!previewModel">
                         <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M20 80 L40 55 L80 55 L100 80 Z" stroke="#3b82f6" stroke-width="1" fill="none" opacity="0.5"/>
                             <path d="M35 55 L40 35 L80 35 L85 55" stroke="#3b82f6" stroke-width="1" fill="none" opacity="0.5"/>
@@ -410,11 +424,15 @@
                 <div class="preview-info">
                     <div class="preview-info-row">
                         <span class="preview-info-label">Status</span>
-                        <span class="preview-info-value">Idle</span>
+                        <span class="preview-info-value">{{ previewStatus }}</span>
                     </div>
                     <div class="preview-info-row">
                         <span class="preview-info-label">Vertices</span>
-                        <span class="preview-info-value">--</span>
+                        <span class="preview-info-value">{{ previewVertices }}</span>
+                    </div>
+                    <div class="preview-info-row">
+                        <span class="preview-info-label">Triangles</span>
+                        <span class="preview-info-value">{{ previewFaces }}</span>
                     </div>
                 </div>
             </div>

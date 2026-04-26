@@ -312,3 +312,70 @@ async def delete_workspace_file(filename: str):
         raise HTTPException(status_code=403, detail="禁止访问")
     file_path.unlink()
     return {"message": f"已删除文件 {filename}"}
+
+
+# ===== 3D Preview =====
+
+@router.get("/workspace/preview/{filename}")
+async def preview_workspace_file(filename: str):
+    """将 STEP 文件转为三角网格 JSON，供前端 Three.js 渲染"""
+    file_lower = filename.lower()
+    if not (file_lower.endswith(".step") or file_lower.endswith(".stp")):
+        raise HTTPException(status_code=400, detail="仅支持 STEP 文件预览")
+
+    if not WORKSPACE_DIR.exists():
+        raise HTTPException(status_code=404, detail="工作区不存在")
+    file_path = WORKSPACE_DIR / filename
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=404, detail="文件不存在")
+    if not str(file_path.resolve()).startswith(str(WORKSPACE_DIR.resolve())):
+        raise HTTPException(status_code=403, detail="禁止访问")
+
+    try:
+        import cadquery as cq
+        from OCP.BRepMesh import BRepMesh_IncrementalMesh
+        from OCP.TopExp import TopExp_Explorer
+        from OCP.TopAbs import TopAbs_FACE
+        from OCP.BRep import BRep_Tool
+        from OCP.TopoDS import TopoDS
+        from OCP.TopLoc import TopLoc_Location
+
+        result = cq.importers.importStep(str(file_path))
+        shape = result.val()
+
+        # 网格化
+        BRepMesh_IncrementalMesh(shape.wrapped, 0.1, True, 0.5, True)
+
+        vertices = []
+        indices = []
+        offset = 0
+
+        explorer = TopExp_Explorer(shape.wrapped, TopAbs_FACE)
+        while explorer.More():
+            face_shp = explorer.Current()
+            face = TopoDS.Face_s(face_shp)
+            loc = TopLoc_Location()
+            triangulation = BRep_Tool.Triangulation_s(face, loc)
+            if triangulation is not None:
+                n_nodes = triangulation.NbNodes()
+                for i in range(1, n_nodes + 1):
+                    p = triangulation.Node(i)
+                    vertices.extend([p.X(), p.Y(), p.Z()])
+                for i in range(1, triangulation.NbTriangles() + 1):
+                    t = triangulation.Triangle(i)
+                    indices.extend([
+                        t.Value(1) - 1 + offset,
+                        t.Value(2) - 1 + offset,
+                        t.Value(3) - 1 + offset,
+                    ])
+                offset += n_nodes
+            explorer.Next()
+
+        return {
+            "vertices": vertices,
+            "indices": indices,
+            "vertex_count": len(vertices) // 3,
+            "face_count": len(indices) // 3,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"STEP 预览失败: {str(e)}")

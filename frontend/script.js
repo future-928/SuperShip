@@ -21,7 +21,13 @@ createApp({
             isUploading: false,
             uploadProgress: '',
             // 工作区文件
-            workspaceFiles: []
+            workspaceFiles: [],
+            // 3D 预览
+            previewModel: null,
+            previewStatus: 'Idle',
+            previewVertices: '--',
+            previewFaces: '--',
+            _threeApp: null
         };
     },
     mounted() {
@@ -429,6 +435,16 @@ createApp({
                 if (!response.ok) throw new Error('Failed to load');
                 const data = await response.json();
                 this.workspaceFiles = data.files;
+
+                // Auto-preview latest STEP file if viewer is already open
+                if (this._threeApp && data.files.length > 0) {
+                    const stepFile = data.files.find(f =>
+                        f.filename.toLowerCase().endsWith('.step') || f.filename.toLowerCase().endsWith('.stp')
+                    );
+                    if (stepFile) {
+                        this.previewStep(stepFile.filename);
+                    }
+                }
             } catch (e) {
                 console.error('Error loading workspace files:', e);
             }
@@ -475,6 +491,139 @@ createApp({
             if (bytes < 1024) return bytes + ' B';
             if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
             return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        },
+
+        // ===== 3D Preview =====
+
+        async init3DViewer() {
+            if (this._threeApp) return this._threeApp;
+
+            const THREE = await import('three');
+            const { OrbitControls } = await import('three/addons/controls/OrbitControls.js');
+
+            const container = this.$refs.viewportContainer;
+            const canvas = this.$refs.viewerCanvas;
+            const w = container.clientWidth;
+            const h = container.clientHeight;
+
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0c1420);
+
+            const camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 100000);
+            camera.position.set(200, 200, 400);
+
+            const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+            renderer.setSize(w, h);
+            renderer.setPixelRatio(window.devicePixelRatio);
+
+            // Lights
+            const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambient);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(200, 400, 300);
+            scene.add(dirLight);
+            const dirLight2 = new THREE.DirectionalLight(0x88aaff, 0.3);
+            dirLight2.position.set(-200, -100, -200);
+            scene.add(dirLight2);
+
+            // Grid
+            const grid = new THREE.GridHelper(1000, 20, 0x1a2d40, 0x1a2d40);
+            scene.add(grid);
+
+            const controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.1;
+
+            const animate = () => {
+                requestAnimationFrame(animate);
+                controls.update();
+                renderer.render(scene, camera);
+            };
+            animate();
+
+            this._threeApp = { THREE, scene, camera, renderer, controls, container };
+            return this._threeApp;
+        },
+
+        async previewStep(filename) {
+            this.previewStatus = 'Loading...';
+            try {
+                const app = await this.init3DViewer();
+                const { THREE, scene, camera, controls } = app;
+
+                // Remove previous model
+                if (this.previewModel) {
+                    scene.remove(this.previewModel);
+                    this.previewModel.geometry.dispose();
+                    this.previewModel = null;
+                }
+
+                const resp = await fetch(`/workspace/preview/${encodeURIComponent(filename)}`);
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({}));
+                    throw new Error(err.detail || 'Preview failed');
+                }
+
+                const data = await resp.json();
+                const geometry = new THREE.BufferGeometry();
+                geometry.setAttribute('position', new THREE.Float32BufferAttribute(data.vertices, 3));
+                geometry.setIndex(data.indices);
+                geometry.computeVertexNormals();
+
+                const material = new THREE.MeshStandardMaterial({
+                    color: 0x5588bb,
+                    metalness: 0.3,
+                    roughness: 0.5,
+                    flatShading: false,
+                });
+                const mesh = new THREE.Mesh(geometry, material);
+                scene.add(mesh);
+                this.previewModel = mesh;
+
+                // Auto-fit camera
+                geometry.computeBoundingBox();
+                const box = geometry.boundingBox;
+                const center = new THREE.Vector3();
+                box.getCenter(center);
+                const size = new THREE.Vector3();
+                box.getSize(size);
+                const maxDim = Math.max(size.x, size.y, size.z);
+                const dist = maxDim * 2;
+                camera.position.set(center.x + dist * 0.5, center.y + dist * 0.5, center.z + dist);
+                controls.target.copy(center);
+                controls.update();
+
+                this.previewStatus = 'Loaded';
+                this.previewVertices = data.vertex_count.toLocaleString();
+                this.previewFaces = data.face_count.toLocaleString();
+
+                this.$nextTick(() => this.resizeViewer());
+            } catch (e) {
+                console.error('Preview error:', e);
+                this.previewStatus = 'Error';
+                alert('3D 预览失败：' + e.message);
+            }
+        },
+
+        clearPreview() {
+            if (this._threeApp && this.previewModel) {
+                this._threeApp.scene.remove(this.previewModel);
+                this.previewModel.geometry.dispose();
+            }
+            this.previewModel = null;
+            this.previewStatus = 'Idle';
+            this.previewVertices = '--';
+            this.previewFaces = '--';
+        },
+
+        resizeViewer() {
+            if (!this._threeApp) return;
+            const { container, camera, renderer } = this._threeApp;
+            const w = container.clientWidth;
+            const h = container.clientHeight;
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
         }
     },
     watch: {
