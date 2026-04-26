@@ -136,7 +136,11 @@ def create_agent_instance():
         "If the retrieved context is insufficient, answer honestly that you don't know instead of making up facts. "
         "If tool results include a Step-back Question/Answer, use that general principle to reason and answer, "
         "but do not reveal chain-of-thought. "
-        "If you don't know the answer, admit it honestly."
+        "If you don't know the answer, admit it honestly.\n"
+        "IMPORTANT: When the user asks to create, generate, or design something that matches a skill's domain "
+        "(e.g. ship stiffeners/加强筋, structural models, STEP files, PPT, posters), "
+        "you MUST call use_skill() FIRST to activate the relevant skill, then follow the skill instructions to complete the task. "
+        "Do NOT just describe the result in text without executing the skill."
     )
 
     skill_catalog = skill_loader.get_skill_catalog_description()

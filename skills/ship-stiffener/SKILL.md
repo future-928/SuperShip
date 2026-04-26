@@ -1,0 +1,246 @@
+---
+name: ship-stiffener
+description: "Ship stiffener structural modeling. Use this skill when the user asks to create, design, or generate ship stiffener models (加强筋), including flat bar (扁铁), T-bar (T型材), L-bar/angle steel (L型材/角钢), bulb flat (球扁钢), or any structural reinforcement profiles. Outputs CadQuery Python scripts and STEP (.step) files."
+license: MIT. LICENSE.txt has complete terms
+---
+
+# Ship Stiffener Structural Modeling
+
+## Overview
+
+A user may ask you to create ship stiffener models from natural language descriptions. You will generate a **CadQuery Python script** that defines the stiffener geometry parametrically, then execute it to produce a `.step` file.
+
+**Output files** (save both to the working directory):
+- `<name>.py` — The CadQuery source script (for user review/modification)
+- `<name>.step` — The exported STEP model file
+
+Both files will be available for the user to download.
+
+## Supported Stiffener Types
+
+### 1. Flat Bar (扁铁)
+
+Simple rectangular cross-section. Parameters:
+- `width` — Web height / bar width (mm)
+- `thickness` — Plate thickness (mm)
+- `length` — Stiffener length (mm)
+
+```
+Cross-section:
+    +--------+
+    |        |  thickness
+    +--------+
+       width
+```
+
+### 2. T-Bar (T型材)
+
+T-shaped cross-section with flange and web. Parameters:
+- `flange_w` — Flange width (mm)
+- `flange_t` — Flange thickness (mm)
+- `web_h` — Web height above flange (mm)
+- `web_t` — Web thickness (mm)
+- `length` — Stiffener length (mm)
+
+```
+Cross-section:
+          web_t
+         +--+
+         |  |
+         |  |  web_h
+         |  |
+    +----+--+----+
+    |             |  flange_t
+    +-------------+
+        flange_w
+```
+
+### 3. L-Bar / Angle Steel (L型材/角钢)
+
+L-shaped cross-section. Parameters:
+- `leg_a` — Horizontal leg length (mm)
+- `leg_b` — Vertical leg length (mm)
+- `thickness` — Plate thickness (mm)
+- `length` — Stiffener length (mm)
+
+```
+Cross-section:
+    +--+
+    |  |
+    |  |  leg_b - thickness
+    |  |
+    |  +--------+
+    |             |  thickness
+    +-------------+
+        leg_a
+```
+
+### 4. Bulb Flat (球扁钢)
+
+Web with a bulb at one edge. Parameters:
+- `width` — Web height (mm)
+- `thickness` — Web thickness (mm)
+- `bulb_h` — Bulb protrusion height (mm)
+- `bulb_w` — Bulb width at base (mm)
+- `length` — Stiffener length (mm)
+
+### 5. Custom Profiles
+
+For any profile not listed above, construct the cross-section as a 2D polygon on the XY plane using `moveTo` / `lineTo` / `close`, then extrude along Z-axis.
+
+## Workflow
+
+Follow these steps exactly:
+
+### Step 1: Parse Parameters
+
+Extract geometric parameters from the user's natural language description. Convert all dimensions to millimeters. If a dimension is not specified, use reasonable defaults based on marine engineering practice:
+
+| Parameter | Default |
+|-----------|---------|
+| `length` | 3000 mm |
+| `thickness` | 12 mm |
+| `flange_w` / `width` | 150 mm |
+| `web_h` | 150 mm |
+
+**IMPORTANT**: Always confirm the interpreted parameters with the user before generating the model. Present them in a clear table format.
+
+### Step 2: Write the CadQuery Script
+
+Use `write_file` to save the CadQuery Python script. The script must:
+1. Import `cadquery as cq`
+2. Define all parameters as variables with clear Chinese comments
+3. Build the geometry using the appropriate method (see Code Style below)
+4. Export to STEP using `cq.exporters.export()`
+5. Print a confirmation message
+
+**CRITICAL**: The script must be self-contained and executable with `python <script>.py`.
+
+### Step 3: Execute the Script
+
+Use `execute_bash` to run the script:
+
+```bash
+python <script_name>.py
+```
+
+**IMPORTANT**: The working directory is already set to the workspace folder. Use relative paths.
+
+### Step 4: Verify Output
+
+Check the command output for the success message. If there are errors, fix the script and re-run.
+
+### Step 5: Report to User
+
+Tell the user:
+- The stiffener type created
+- The parameters used
+- The filename of both `.step` and `.py` files
+- That both files are available for download
+
+## Code Style
+
+### Cross-Section Construction
+
+For simple shapes (flat bar), use `.rect()`:
+
+```python
+part = cq.Workplane("XY").rect(width, thickness).extrude(length)
+```
+
+For complex profiles (T, L, bulb flat), draw the cross-section as a polygon:
+
+```python
+part = (
+    cq.Workplane("XY")
+    .moveTo(x0, y0)
+    .lineTo(x1, y1)
+    .lineTo(x2, y2)
+    # ... continue around the profile
+    .close()
+    .extrude(length)
+)
+```
+
+**IMPORTANT**: All cross-sections are drawn on the XY plane. The stiffener extends along the Z-axis (length direction).
+
+### Coordinate Convention
+
+- **X-axis**: Across the flange / width direction
+- **Y-axis**: Height direction (web goes upward)
+- **Z-axis**: Length direction (extrusion direction)
+
+### STEP Export
+
+Always use this pattern:
+
+```python
+cq.exporters.export(part, "<output_filename>.step")
+print(f"STEP file exported: <output_filename>.step")
+```
+
+### Script Template
+
+```python
+"""
+<Stiffener Type> - Ship Stiffener Model
+Generated by MarineAgent
+
+Parameters:
+  <list all parameters with values>
+"""
+import cadquery as cq
+
+# === Parameters ===
+# <parameter_name> = <value>  # <description> (mm)
+
+# === Build Geometry ===
+part = (
+    cq.Workplane("XY")
+    # ... geometry construction
+)
+
+# === Export ===
+output_file = "<filename>.step"
+cq.exporters.export(part, output_file)
+print(f"Exported: {output_file}")
+```
+
+## Example Scripts
+
+Reference examples for common stiffener types are located at `skills/ship-stiffener/examples/`:
+
+- [`flat_bar.py`](examples/flat_bar.py) — Flat bar stiffener (扁铁)
+- [`t_bar.py`](examples/t_bar.py) — T-bar stiffener (T型材)
+- [`l_bar.py`](examples/l_bar.py) — L-bar stiffener (L型材/角钢)
+
+**NOTE**: You should read these example files for reference when generating scripts. Use `read_file` to load them before writing your own script.
+
+## Multi-Part Assemblies
+
+If the user requests multiple stiffeners in one model, use `cq.Assembly`:
+
+```python
+assy = cq.Assembly()
+assy.add(part1, name="stiffener_1")
+assy.add(part2, name="stiffener_2", loc=cq.Location(cq.Vector(x, y, z)))
+assy.save("assembly.step")
+```
+
+## Error Handling
+
+If CadQuery execution fails:
+1. Read the error message carefully
+2. Fix the geometry parameters (common issues: negative dimensions, zero-thickness)
+3. Re-run the script
+4. If the error persists, explain the issue to the user and suggest alternative parameters
+
+## Dependencies
+
+CadQuery must be installed:
+
+```bash
+pip install cadquery
+```
+
+If CadQuery is not installed, inform the user and suggest running the install command above.

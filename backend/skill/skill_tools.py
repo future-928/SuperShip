@@ -2,12 +2,16 @@
 Skill tools - LangChain @tool wrappers for the skill framework and base tools.
 """
 import os
+import sys
 import subprocess
 from pathlib import Path
 from langchain_core.tools import tool
 from langchain_core.messages import SystemMessage
 
 from skill import skill_loader
+
+# Resolve the Python executable from the current virtual environment
+_PYTHON = sys.executable
 
 # Working directory for base tools (file I/O, bash)
 WORK_DIR = Path(os.getenv(
@@ -55,8 +59,8 @@ def _resolve(path: str) -> Path:
 
 @tool("use_skill")
 def use_skill(skill_name: str, reason: str = "") -> str:
-    """Activate a skill to access its full capabilities.
-    Call this when the user's request requires a specific skill (e.g. creating a PPT, designing a poster, building a frontend page).
+    """Activate a skill to access its full capabilities. ALWAYS call this FIRST when the user's request matches any skill's domain (e.g. creating ship stiffeners/加强筋, generating STEP models, creating a PPT, designing a poster, building a frontend page).
+    Do NOT answer the question directly without activating the matching skill first.
     Available skills are listed in your system instructions."""
     content = skill_loader.activate_skill(skill_name)
     if content is None:
@@ -131,8 +135,14 @@ def create_directory(path: str) -> str:
 
 @tool
 def execute_bash(command: str) -> str:
-    """Execute a bash/shell command and return output. Use for running scripts, python, pip, etc."""
+    """Execute a bash/shell command and return output. Use for running scripts, python, pip, etc.
+    When running Python scripts, the project's virtual environment Python is used automatically."""
     WORK_DIR.mkdir(parents=True, exist_ok=True)
+    # Replace bare 'python' with the venv Python to ensure dependencies are available
+    import re
+    python_escaped = _PYTHON.replace("\\", "\\\\")
+    command = re.sub(r'^python\b', python_escaped, command)
+    command = re.sub(r'(?<=\s)python\b', python_escaped, command)
     try:
         result = subprocess.run(
             command, shell=True, cwd=str(WORK_DIR),
