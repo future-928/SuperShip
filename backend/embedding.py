@@ -30,29 +30,37 @@ class EmbeddingService:
         self._total_docs = 0
         self._avg_doc_len = 0
 
-    def get_embeddings(self, texts: list[str]) -> list[list[float]]:
-        """
-        调用嵌入 API 生成密集向量
-        :param texts: 待转换的文本列表（支持批量）
-        :return: 向量列表
-        """
+    def _get_single_embedding(self, text: str) -> list[float]:
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
         }
         data = {
             "model": self.embedder,
-            "input": texts,
-            "encoding_format": "float"
+            "input": [{"type": "text", "text": text}],
         }
+        response = requests.post(
+            f"{self.base_url}/embeddings/multimodal",
+            headers=headers, json=data, timeout=30,
+        )
+        response.raise_for_status()
+        result = response.json()
+        embedding_data = result.get("data", {})
+        if isinstance(embedding_data, dict):
+            return embedding_data.get("embedding", [])
+        return embedding_data[0].get("embedding", [])
 
-        try:
-            response = requests.post(f"{self.base_url}/embeddings", headers=headers, json=data)
-            response.raise_for_status()
-            result = response.json()
-            return [item["embedding"] for item in result["data"]]
-        except Exception as e:
-            raise Exception(f"嵌入 API 调用失败: {str(e)}")
+    def get_embeddings(self, texts: list[str]) -> list[list[float]]:
+        """
+        调用嵌入 API 生成密集向量（逐条调用）
+        :param texts: 待转换的文本列表
+        :return: 向量列表
+        """
+        embeddings = []
+        for text in texts:
+            emb = self._get_single_embedding(text)
+            embeddings.append(emb)
+        return embeddings
 
     def tokenize(self, text: str) -> list[str]:
         """
