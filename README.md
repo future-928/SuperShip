@@ -1,6 +1,12 @@
-# SuperMew — 船舶建模智能体
+# SuperShip — 船舶建模智能体
 
 基于 RAG + Agent 的船舶建模工程助手，集成文档检索、知识问答、结构建模与 3D 预览能力。
+
+## 运行效果
+![效果1](assets/图1.png)
+![效果2](assets/图2.png)
+![效果3](assets/图3.png)
+![效果4](assets/图4.png)
 
 ## 项目定位
 
